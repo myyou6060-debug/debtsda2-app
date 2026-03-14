@@ -1,8 +1,11 @@
 {
   "name": "المستقر المالي",
   "short_name": "المستقر",
+  "description": "تطبيق إدارة الشؤون المالية",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#1a1f3a",
   "theme_color": "#1a1f3a",
   "lang": "ar",
