@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>المستقر المالي</title>
+    <meta name="application-name" content="المستقر المالي">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="المستقر المالي">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a1f3a">
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%231a1f3a'/%3E%3Ctext x='50' y='70' font-size='50' text-anchor='middle' fill='%23f5c842' font-family='Arial'%3E💰%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%231a1f3a'/%3E%3Ctext x='50' y='70' font-size='50' text-anchor='middle' fill='%23f5c842' font-family='Arial'%3E💰%3C/text%3E%3C/svg%3E">
+    <style>
+        /* خط النظام العربي المحلي — بدون إنترنت */
+        @font-face {
+            font-family: Tahoma, Arial, sans-serif;
+            src: local('Segoe UI'), local('Tahoma'), local('Arial');
+        }
+    </style>
+    <script>
+// ===== Chart.js Lite - محلي بالكامل =====
+class Chart {
+    constructor(ctx, config) {
+        this.ctx = ctx;
+        this.config = config;
+        this.canvas = ctx.canvas || ctx;
+        this._draw();
+    }
+    _draw() {
+        const c = this.canvas;
+        const ctx = c.getContext('2d');
+        const type = this.config.type;
+        const data = this.config.data;
+        const opts = this.config.options || {};
+        ctx.clearRect(0, 0, c.width, c.height);
+        if (type === 'doughnut' || type === 'pie') this._drawDoughnut(ctx, c, data, opts);
+        else if (type === 'bar') this._drawBar(ctx, c, data, opts);
+        else if (type === 'line') this._drawLine(ctx, c, data, opts);
+    }
+    _drawDoughnut(ctx, c, data, opts) {
+        const W = c.width, H = c.height;
+        const cx = W/2, cy = H/2;
+        const R = Math.min(W,H)*0.38;
+        const r = R * 0.55;
+        const labels = data.labels || [];
+        const ds = data.datasets[0];
+        const vals = ds.data || [];
+        const colors = ds.backgroundColor || ['#3b82f6','#f97316','#2ecc71','#e74c6f','#f5c842'];
+        const total = vals.reduce((a,b)=>a+b,0) || 1;
+        let angle = -Math.PI/2;
+        vals.forEach((v, i) => {
+            const slice = (v/total) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, R, angle, angle+slice);
+            ctx.closePath();
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fill();
+            angle += slice;
+        });
+        // ثقب الدونات
+        if (this.config.type === 'doughnut') {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI*2);
+            ctx.fillStyle = '#1a1f3a';
+            ctx.fill();
+        }
+        // تسميات
+        ctx.font = 'bold 11px Tahoma,Arial';
+        ctx.textAlign = 'center';
+        angle = -Math.PI/2;
+        vals.forEach((v, i) => {
+            const slice = (v/total)*Math.PI*2;
+            if (v === 0) { angle+=slice; return; }
+            const mid = angle + slice/2;
+            const lx = cx + (R*0.75)*Math.cos(mid);
+            const ly = cy + (R*0.75)*Math.sin(mid);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(Math.round(v/total*100)+'%', lx, ly);
+            angle += slice;
+        });
+        // وسط
+        if (opts.plugins && opts.plugins.centerText) {
+            ctx.fillStyle = '#f5c842';
+            ctx.font = 'bold 13px Tahoma,Arial';
+            ctx.fillText(opts.plugins.centerText, cx, cy+5);
+        }
+        // Legend
+        const legY = H - labels.length*18 - 4;
+        labels.forEach((lbl, i) => {
+            ctx.fillStyle = colors[i%colors.length];
+            ctx.fillRect(8, legY+i*18, 12, 12);
+            ctx.fillStyle = '#ccc';
+            ctx.font = '11px Tahoma,Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(lbl + ' (' + (vals[i]||0) + ')', 24, legY+i*18+10);
+        });
+    }
+    _drawBar(ctx, c, data, opts) {
+        const W = c.width, H = c.height;
+        const pad = {l:40,r:10,t:20,b:50};
+        const labels = data.labels || [];
+        const datasets = data.datasets || [];
+        const allVals = datasets.flatMap(d=>d.data||[]);
+        const maxV = Math.max(...allVals, 1);
+        const areaW = W - pad.l - pad.r;
+        const areaH = H - pad.t - pad.b;
+        const barW = areaW / (labels.length * (datasets.length+0.5));
+        // grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        for (let i=0;i<=4;i++) {
+            const y = pad.t + areaH*(1-i/4);
+            ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+            ctx.fillStyle='rgba(255,255,255,0.4)';
+            ctx.font='10px Tahoma';
+            ctx.textAlign='right';
+            ctx.fillText(Math.round(maxV*i/4), pad.l-4, y+3);
+        }
+        // bars
+        labels.forEach((lbl, li) => {
+            datasets.forEach((ds, di) => {
+                const v = ds.data[li] || 0;
+                const bx = pad.l + li*(datasets.length+0.5)*barW + di*barW;
+                const bh = (v/maxV)*areaH;
+                const by = pad.t + areaH - bh;
+                ctx.fillStyle = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[li]||ds.backgroundColor[0] : ds.backgroundColor||'#3b82f6';
+                ctx.fillRect(bx, by, barW*0.85, bh);
+            });
+            // label
+            ctx.fillStyle='rgba(255,255,255,0.6)';
+            ctx.font='10px Tahoma';
+            ctx.textAlign='center';
+            const cx2 = pad.l + li*(datasets.length+0.5)*barW + (datasets.length*barW)/2;
+            ctx.fillText(lbl, cx2, H-pad.b+14);
+        });
+    }
+    _drawLine(ctx, c, data, opts) {
+        const W = c.width, H = c.height;
+        const pad = {l:40,r:10,t:20,b:50};
+        const labels = data.labels || [];
+        const datasets = data.datasets || [];
+        const allVals = datasets.flatMap(d=>d.data||[]);
+        const maxV = Math.max(...allVals,1);
+        const areaW = W-pad.l-pad.r;
+        const areaH = H-pad.t-pad.b;
+        // grid
+        ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=1;
+        for(let i=0;i<=4;i++){
+            const y=pad.t+areaH*(1-i/4);
+            ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+            ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='10px Tahoma';ctx.textAlign='right';
+            ctx.fillText(Math.round(maxV*i/4),pad.l-4,y+3);
+        }
+        datasets.forEach(ds => {
+            const pts = ds.data||[];
+            const col = ds.borderColor||ds.backgroundColor||'#3b82f6';
+            ctx.strokeStyle=col; ctx.lineWidth=2;
+            ctx.beginPath();
+            pts.forEach((v,i)=>{
+                const x=pad.l+i*(areaW/(labels.length-1||1));
+                const y=pad.t+areaH-(v/maxV)*areaH;
+                i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+            });
+            ctx.stroke();
+            // نقاط
+            pts.forEach((v,i)=>{
+                const x=pad.l+i*(areaW/(labels.length-1||1));
+                const y=pad.t+areaH-(v/maxV)*areaH;
+                ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
+                ctx.fillStyle=col;ctx.fill();
+            });
+        });
+        // labels
+        labels.forEach((lbl,i)=>{
+            const x=pad.l+i*(areaW/(labels.length-1||1));
+            ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='10px Tahoma';ctx.textAlign='center';
+            ctx.fillText(lbl,x,H-pad.b+14);
+        });
+    }
+    update() { this._draw(); }
+    destroy() {
+        const ctx = this.canvas.getContext('2d');
+        ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+    }
+}
+</script>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+
+        :root {
+            --navy: #1a1f3a;
+            --navy-light: #252b4a;
+            --navy-mid: #2e3660;
+            --gold: #f5c842;
+            --gold-light: #fde68a;
+            --gold-dark: #d4a017;
+            --teal: #0fb9b1;
+            --teal-dark: #0a8f88;
+            --rose: #e74c6f;
+            --rose-dark: #c43058;
+            --green: #2ecc71;
+            --green-dark: #219a55;
+            --blue: #3b82f6;
+            --orange: #f97316;
+            --bg: #f0f2f8;
+            --card-bg: #ffffff;
+            --text-dark: #1a1f3a;
+            --text-mid: #4a5280;
+            --text-light: #8892b0;
+            --border: #e2e8f8;
+            --shadow-sm: 0 2px 8px rgba(26,31,58,0.06);
+            --shadow-md: 0 8px 24px rgba(26,31,58,0.1);
+            --shadow-lg: 0 20px 48px rgba(26,31,58,0.14);
+            --radius: 20px;
+            --radius-sm: 12px;
+        }
+
+        body {
+            font-family: Tahoma, Arial, sans-serif;
+            background: var(--bg);
+            margin: 0; padding: 0;
+            height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+
+        /* ===== HEADER ===== */
+        .app-header {
+            background: var(--navy);
+            color: white;
+            padding: 12px 16px 10px;
+            border-radius: 0 0 24px 24px;
+            flex-shrink: 0;
+            box-shadow: 0 8px 32px rgba(26,31,58,0.3);
+            position: relative;
+        }
+        .app-header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 0 0 24px 24px;
+            background: linear-gradient(135deg, rgba(245,200,66,0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .fixed-title {
+            font-size: 18px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            color: var(--gold);
+            letter-spacing: 0.5px;
+        }
+        .fixed-title .title-icon {
+            font-size: 22px;
+            filter: drop-shadow(0 2px 4px rgba(245,200,66,0.4));
+        }
+        .auto-save-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(46,204,113,0.2);
+            border: 1px solid rgba(46,204,113,0.3);
+            border-radius: 20px;
+            padding: 2px 8px;
+            font-size: 10px;
+            color: #2ecc71;
+            font-weight: 700;
+        }
+        .second-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 36px;
+        }
+        .menu-btn {
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            cursor: pointer;
+            font-size: 18px;
+            transition: 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .menu-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.95); }
+        .dynamic-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.75);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex: 1;
+            text-align: center;
+            justify-content: center;
+        }
+        .back-btn {
+            font-size: 12px;
+            cursor: pointer;
+            background: rgba(245,200,66,0.2);
+            border: 1px solid rgba(245,200,66,0.3);
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: none;
+            color: var(--gold);
+            font-family: Tahoma, Arial, sans-serif;
+            font-weight: 700;
+            transition: 0.2s;
+        }
+        .back-btn:active { transform: scale(0.95); }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            position: fixed;
+            right: -280px;
+            top: 0;
+            width: 260px;
+            height: 100%;
+            background: var(--navy);
+            box-shadow: -10px 0 40px rgba(0,0,0,0.4);
+            transition: 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+            z-index: 1000;
+            padding: 0;
+            border-radius: 28px 0 0 28px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar.open { right: 0; }
+        .sidebar-header {
+            padding: 30px 20px 20px;
+            background: linear-gradient(145deg, var(--navy-mid), var(--navy));
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .sidebar-logo {
+            font-size: 48px;
+            display: block;
+            filter: drop-shadow(0 4px 8px rgba(245,200,66,0.3));
+        }
+        .sidebar-app-name {
+            color: var(--gold);
+            font-size: 18px;
+            font-weight: 900;
+            margin: 8px 0 4px;
+        }
+        .sidebar-subtitle {
+            color: var(--text-light);
+            font-size: 11px;
+        }
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 12px;
+        }
+        .sidebar-item {
+            padding: 11px 14px;
+            margin-bottom: 4px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        .sidebar-item:hover, .sidebar-item.active {
+            background: rgba(245,200,66,0.12);
+            color: var(--gold);
+        }
+        .sidebar-icon {
+            font-size: 20px;
+            width: 28px;
+            text-align: center;
+        }
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 10px 12px;
+        }
+        .sidebar-footer {
+            padding: 14px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            font-size: 11px;
+            color: var(--text-light);
+            text-align: center;
+        }
+        .sidebar-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.5);
+            display: none; z-index: 999;
+            backdrop-filter: blur(4px);
+        }
+
+        /* ===== CONTAINER ===== */
+        .container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 14px 50px;
+            scroll-behavior: smooth;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 16px 14px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        .card-navy {
+            background: var(--navy);
+            border-color: var(--navy-light);
+            color: white;
+        }
+        .card-gold {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            border-color: var(--gold-dark);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--text-dark);
+        }
+        .card-icon {
+            font-size: 22px;
+        }
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: -10px;
+            margin-bottom: 12px;
+        }
+
+        /* ===== STAT ITEMS ===== */
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .stat-item {
+            flex: 1;
+            background: var(--bg);
+            border-radius: 14px;
+            padding: 10px 6px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-light);
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1.2;
+        }
+        .stat-value.total { color: var(--navy); }
+        .stat-value.paid { color: var(--green); }
+        .stat-value.remaining { color: var(--orange); }
+
+        /* ===== INPUTS ===== */
+        input, select {
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            font-family: Tahoma, Arial, sans-serif;
+            font-size: 14px;
+            background: var(--bg);
+            outline: none;
+            transition: 0.2s;
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+        input:focus, select:focus {
+            border-color: var(--gold);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(245,200,66,0.15);
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            border: none;
+            border-radius: 14px;
+            font-family: Tahoma, Arial, sans-serif;
+            font-weight: 800;
+            cursor: pointer;
+            padding: 12px 14px;
+            width: 100%;
+            font-size: 14px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary {
+            background: var(--navy);
+            color: var(--gold);
+            box-shadow: 0 4px 0 rgba(26,31,58,0.4);
+        }
+        .btn-primary:active { box-shadow: 0 1px 0 rgba(26,31,58,0.4); transform: translateY(3px); }
+        .btn-gold {
+            background: var(--gold);
+            color: var(--navy);
+            box-shadow: 0 4px 0 var(--gold-dark);
+        }
+        .btn-gold:active { box-shadow: 0 1px 0 var(--gold-dark); transform: translateY(3px); }
+        .btn-teal {
+            background: var(--teal);
+            color: white;
+            box-shadow: 0 4px 0 var(--teal-dark);
+        }
+        .btn-teal:active { box-shadow: 0 1px 0 var(--teal-dark); transform: translateY(3px); }
+        .btn-rose {
+            background: var(--rose);
+            color: white;
+            box-shadow: 0 4px 0 var(--rose-dark);
+        }
+        .btn-rose:active { box-shadow: 0 1px 0 var(--rose-dark); transform: translateY(3px); }
+        .btn-green {
+            background: var(--green);
+            color: white;
+            box-shadow: 0 4px 0 var(--green-dark);
+        }
+        .btn-green:active { box-shadow: 0 1px 0 var(--green-dark); transform: translateY(3px); }
+        .btn-orange {
+            background: var(--orange);
+            color: white;
+            box-shadow: 0 4px 0 #c2410c;
+        }
+        .btn-orange:active { box-shadow: 0 1px 0 #c2410c; transform: translateY(3px); }
+        .btn-blue {
+            background: var(--blue);
+            color: white;
+            box-shadow: 0 4px 0 #1e3f8f;
+        }
+        .btn-blue:active { box-shadow: 0 1px 0 #1e3f8f; transform: translateY(3px); }
+        .btn-gray {
+            background: #64748b;
+            color: white;
+            box-shadow: 0 4px 0 #475569;
+        }
+        .btn-sm {
+            width: auto;
+            padding: 7px 14px;
+            font-size: 12px;
+            border-radius: 10px;
+        }
+        .btn-update {
+            background: var(--blue);
+            color: white;
+            display: none;
+            box-shadow: 0 4px 0 #1e3f8f;
+        }
+        .btn-del {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: none;
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-weight: 800;
+            cursor: pointer;
+            font-family: Tahoma, Arial, sans-serif;
+            font-size: 12px;
+        }
+        .btn-del:active { transform: scale(0.95); }
+
+        /* ===== TABLES ===== */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-top: 8px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        th {
+            background: var(--navy);
+            color: var(--gold);
+            padding: 10px 4px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        td {
+            padding: 11px 4px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-dark);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(245,200,66,0.04); }
+        .clickable-amt {
+            color: var(--blue);
+            cursor: pointer;
+            text-decoration: underline dotted;
+            font-weight: 900;
+        }
+        .over-limit-row { background-color: #fff0f3 !important; }
+        .over-limit-row td { color: var(--rose-dark) !important; }
+        .unknown-row { background-color: #f0f4ff !important; }
+        .unknown-row td { color: var(--navy) !important; }
+
+        /* ===== PAGES ===== */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ===== STATUS INDICATORS ===== */
+        .status-message {
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: 900;
+            margin-top: 12px;
+        }
+        .status-positive {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+            border: 2px solid #6ee7b7;
+        }
+        .status-negative {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #7f1d1d;
+            border: 2px solid #fca5a5;
+        }
+        .status-neutral {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #78350f;
+            border: 2px solid #fcd34d;
+        }
+        .status-emoji {
+            font-size: 50px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* ===== PURCHASE ROWS ===== */
+        #lockMsgDebt {
+            display: none;
+            color: var(--rose-dark);
+            font-weight: 800;
+            background: #fff0f3;
+            padding: 12px;
+            border-radius: 14px;
+            text-align: center;
+            border: 2px dashed var(--rose);
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        tr.purchase-with-details { background-color: #f0fdf4 !important; }
+        tr.purchase-with-details td { color: #14532d; }
+        tr.purchase-no-details { background-color: white; }
+        tr.payment-row { background-color: #f8fafc; }
+        tbody.settled-pair { display: table-row-group; }
+        tbody.settled-pair tr { font-size: 12px; }
+        tbody.settled-pair td { padding: 6px 3px; }
+        tr.settled-purchase { background-color: #fff0f3 !important; }
+        tr.settled-purchase td { color: var(--rose-dark) !important; font-weight: 900; }
+        tr.settled-payment { background-color: #fff0f3 !important; }
+        tr.settled-payment td { color: var(--rose-dark) !important; font-weight: 900; }
+
+        /* ===== HOMEPAGE COMPONENTS ===== */
+        .personal-account {
+            display: flex;
+            justify-content: space-around;
+            background: var(--navy);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 14px;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+        }
+        .personal-account::before {
+            content: '';
+            position: absolute;
+            top: -30px; right: -30px;
+            width: 120px; height: 120px;
+            background: rgba(245,200,66,0.08);
+            border-radius: 50%;
+        }
+        .personal-item { text-align: center; position: relative; }
+        .personal-label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.55);
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .personal-value {
+            font-size: 18px;
+            font-weight: 900;
+        }
+        .personal-value.debt { color: var(--orange); }
+        .personal-value.paid-savings { color: var(--green); }
+        .personal-value.remaining-savings { color: var(--teal); }
+
+        .home-header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .chart-container {
+            background: white;
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+        }
+        canvas { max-height: 240px; width: 100% !important; }
+
+        /* ===== STORE BADGE ===== */
+        .store-name-badge {
+            background: var(--navy);
+            color: var(--gold);
+            padding: 5px 14px;
+            border-radius: 30px;
+            font-size: 13px;
+            display: inline-block;
+            margin-bottom: 10px;
+            font-weight: 800;
+            border: 1px solid var(--gold-dark);
+        }
+
+        /* ===== TOTALS ===== */
+        .grand-total {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--orange);
+            line-height: 1.2;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 14px 0;
+        }
+        .total-box {
+            background: var(--bg);
+            border-radius: 16px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .total-label { font-size: 13px; color: var(--text-mid); font-weight: 700; }
+        .total-value { font-size: 28px; font-weight: 900; color: var(--text-dark); }
+        .positive { color: var(--green) !important; }
+        .negative { color: var(--rose) !important; }
+
+        /* ===== TOTALS TABLE ===== */
+        .totals-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .totals-table th {
+            background: var(--navy);
+            color: var(--gold);
+            padding: 10px 5px;
+            font-size: 12px;
+        }
+        .totals-table td {
+            padding: 12px 5px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .row-savings td:first-child { color: var(--green); font-weight: 900; }
+        .row-borrow td:first-child { color: var(--blue); font-weight: 900; }
+        .row-purchases td:first-child { color: var(--orange); font-weight: 900; }
+        .row-paid-detail { font-size: 12px; color: #6c757d; }
+        .row-paid-detail td:first-child { padding-right: 24px; }
+        .net-row { background: linear-gradient(135deg, var(--bg), white); }
+        .net-row td { padding: 14px 5px; font-weight: 900; }
+
+        /* ===== STORES TABLE ===== */
+        .stores-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .stores-table th {
+            background: var(--orange);
+            color: white;
+            padding: 10px 5px;
+            font-size: 12px;
+        }
+        .stores-table td {
+            padding: 10px 5px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ===== CHECKBOX ===== */
+        .checkbox-column { width: 36px; text-align: center; }
+        .checkbox-column input { width: 18px; height: 18px; cursor: pointer; margin: 0; padding: 0; }
+
+        /* ===== PAYMENT OPTIONS ===== */
+        .payment-options { display: flex; gap: 10px; margin-top: 10px; }
+        .payment-option-btn {
+            flex: 1; padding: 10px; border: none;
+            border-radius: 14px; font-family: Tahoma, Arial, sans-serif;
+            font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 13px;
+        }
+        .payment-option-btn:active { transform: scale(0.95); }
+        .payment-from-borrow {
+            background: var(--blue);
+            color: white;
+            box-shadow: 0 3px 0 #1e3f8f;
+        }
+        .payment-from-savings {
+            background: var(--green);
+            color: white;
+            box-shadow: 0 3px 0 var(--green-dark);
+        }
+
+        /* ===== INSTALL PROMPT ===== */
+        .install-prompt {
+            background: var(--navy);
+            border-radius: 16px;
+            padding: 12px 15px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(245,200,66,0.2);
+            color: rgba(255,255,255,0.8);
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .install-btn {
+            background: var(--gold);
+            color: var(--navy);
+            border: none;
+            border-radius: 20px;
+            padding: 7px 16px;
+            font-weight: 800;
+            font-family: Tahoma, Arial, sans-serif;
+            cursor: pointer;
+        }
+
+        /* ===== SECTION LABELS ===== */
+        .section-label {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--text-mid);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .section-label::before {
+            content: '';
+            display: inline-block;
+            width: 3px;
+            height: 16px;
+            background: var(--gold);
+            border-radius: 2px;
+        }
+
+        /* ===== PRINT ===== */
+        @media print {
+            body * { visibility: hidden; }
+            .print-area, .print-area * { visibility: visible; }
+            .print-area {
+                position: absolute; left: 0; top: 0;
+                width: 100%; padding: 20px;
+                background: white; font-family: Tahoma, Arial, sans-serif;
+            }
+            .print-area table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            .print-area th { background: #f2f5fe; padding: 10px; font-size: 14px; }
+            .print-area td { padding: 8px; border: 1px solid #ddd; }
+            .print-title { font-size: 24px; font-weight: 900; text-align: center; color: var(--navy); margin-bottom: 5px; }
+            .print-subtitle { text-align: center; font-size: 18px; margin-bottom: 20px; }
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .page.active { animation: slideIn 0.2s ease; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .saving-pulse { animation: pulse 0.5s ease; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <span class="sidebar-logo">💰</span>
+        <div class="sidebar-app-name">المستقر المالي</div>
+        <div class="sidebar-subtitle">منصة الاستقرار المالي والادخاري</div>
+    </div>
+    <div class="sidebar-nav">
+        <div class="sidebar-item" onclick="showPage('tabHomepage')">
+            <span class="sidebar-icon">🏠</span>
+            <span>الرئيسية</span>
+        </div>
+        <div class="sidebar-item" onclick="showPage('tabBorrow')">
+            <span class="sidebar-icon">💸</span>
+            <span>السلف (علي)</span>
+        </div>
+        <div class="sidebar-item" onclick="showPage('tabDebtHome')">
+            <span class="sidebar-icon">🛒</span>
+            <span>المشتريات بالدين</span>
+        </div>
+        <div class="sidebar-item" onclick="showPage('tabSave')">
+            <span class="sidebar-icon">💰</span>
+            <span>الادخار</span>
+        </div>
+        <div class="sidebar-item" onclick="showPage('tabSovereignSavings')">
+            <span class="sidebar-icon">🏦</span>
+            <span>الادخار السيادي</span>
+        </div>
+        <div class="sidebar-item" onclick="showPage('tabTotals')">
+            <span class="sidebar-icon">📊</span>
+            <span>المجاميع</span>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-item" onclick="exportData()">
+            <span class="sidebar-icon">📤</span>
+            <span>تصدير البيانات</span>
+        </div>
+        <div class="sidebar-item" onclick="document.getElementById('importFile').click()">
+            <span class="sidebar-icon">📥</span>
+            <span>استيراد بيانات</span>
+        </div>
+        <input type="file" id="importFile" accept=".json,application/json" style="display: none;" onchange="importData(event)">
+    </div>
+    <div class="sidebar-footer">
+        <span class="auto-save-indicator">✓ حفظ تلقائي</span>
+        <div style="margin-top: 8px; font-size: 10px;">أضف للتطبيقات للاستخدام السريع</div>
+    </div>
+</div>
+
+<div class="app-header">
+    <div class="fixed-title">
+        <span class="title-icon">💰</span>
+        منصة الاستقرار المالي
+        <span class="auto-save-indicator">✓ حفظ</span>
+    </div>
+    <div class="second-row">
+        <div class="menu-btn" onclick="toggleSidebar()">☰</div>
+        <div id="dynamicTitle" class="dynamic-title">
+            <span>🏠</span> الرئيسية · الرسم البياني
+        </div>
+        <button id="btnBack" class="back-btn" onclick="goBack()">↩ رجوع</button>
+    </div>
+</div>
+
+<div id="installMessage" style="display: none; padding: 10px 14px 0;" class="">
+    <div class="install-prompt">
+        <span>📱 ثبت التطبيق على هاتفك</span>
+        <button id="installBtn" class="install-btn">تثبيت</button>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- الصفحة الرئيسية -->
+    <div id="tabHomepage" class="page active">
+        <div class="personal-account">
+            <div class="personal-item">
+                <div class="personal-label">💳 ديون المشتريات</div>
+                <div class="personal-value debt" id="personalDebt">0 دج</div>
+            </div>
+            <div class="personal-item">
+                <div class="personal-label">💰 مدفوع من الادخار</div>
+                <div class="personal-value paid-savings" id="personalPaidFromSavings">0 دج</div>
+            </div>
+            <div class="personal-item">
+                <div class="personal-label">🏦 باقي الادخار</div>
+                <div class="personal-value remaining-savings" id="personalRemainingSavings">0 دج</div>
+            </div>
+        </div>
+
+        <div class="home-header">
+            <div class="section-label" style="justify-content: center; margin-bottom: 8px;">📊 الوضع المالي الحالي</div>
+        </div>
+        <div class="chart-container">
+            <canvas id="financialChart"></canvas>
+        </div>
+        <div id="statusMessage"></div>
+    </div>
+
+    <!-- السلف (علي) -->
+    <div id="tabBorrow" class="page">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">💸</span>
+                <div>
+                    <div class="card-title">السلف (علي) · استلفت من ناس</div>
+                </div>
+            </div>
+            <div class="card-subtitle">أشخاص أقرضوني مالاً (سلفة نقدية)</div>
+            <input type="text" id="bName" placeholder="اسم الشخص (الدائن)">
+            <input type="number" id="bAmt" placeholder="المبلغ المستلف (علي)">
+            <button class="btn btn-blue" onclick="addBorrow()">➕ تسجيل سلفة جديدة</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>الشخص</th><th>المبلغ</th><th>المستهلك</th><th>المتبقي</th><th>حذف</th>
+                </tr>
+            </thead>
+            <tbody id="borrowTable"></tbody>
+        </table>
+    </div>
+
+    <!-- المشتريات بالدين -->
+    <div id="tabDebtHome" class="page">
+        <div class="card" style="text-align: center;">
+            <div class="section-label" style="justify-content:center; margin-bottom: 8px;">إجمالي المشتريات بالدين (علي للتجار)</div>
+            <div id="grandDebtOwed" class="grand-total">0 دج</div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">🛒</span>
+                <div class="card-title">إضافة تاجر جديد</div>
+            </div>
+            <input type="text" id="storeName" placeholder="اسم التاجر / المحل">
+            <input type="number" id="storeInit" placeholder="المبلغ الأولي (علي)">
+            <button class="btn btn-orange" onclick="addStore()">➕ إضافة تاجر (علي دين)</button>
+        </div>
+        <table class="stores-table">
+            <thead>
+                <tr><th>التاجر</th><th>الإجمالي</th><th>المدفوع</th><th>الباقي</th><th>حذف</th></tr>
+            </thead>
+            <tbody id="storesTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- عمليات المشتريات لكل تاجر -->
+    <div id="tabDebtOps" class="page">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div class="store-name-badge" id="currentStoreName"></div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-blue btn-sm" onclick="printStoreStatement()">🖨️ طباعة</button>
+                    <button class="btn btn-gray btn-sm" onclick="showPaidRecords()">📜 المدفوعات</button>
+                </div>
+            </div>
+            <div class="stats-row">
+                <div class="stat-item">
+                    <div class="stat-label">إجمالي المشتريات</div>
+                    <div class="stat-value total" id="debtStatsTotal">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">مدفوع للتاجر</div>
+                    <div class="stat-value paid" id="debtStatsPaid">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">المتبقي علي</div>
+                    <div class="stat-value remaining" id="debtStatsRemaining">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <input type="date" id="debtODate" style="flex:2; min-width:110px;">
+                <input type="number" id="debtOAmt" placeholder="المبلغ" style="flex:1;">
+            </div>
+            <div id="debtNormalBtns" style="display: flex; gap: 8px; margin-top:6px;">
+                <button class="btn btn-gold" style="flex:1;" onclick="addDebtOp('مشتريات')">➕ مشتريات</button>
+                <button class="btn btn-green" style="flex:1;" onclick="showPaymentOptions()">💰 دفع وتسديد</button>
+            </div>
+            <div id="paymentOptions" style="display: none; margin-top: 10px;">
+                <div class="payment-options">
+                    <button class="payment-option-btn payment-from-borrow" onclick="processPaymentFromSource('borrow')">💸 من السلف</button>
+                    <button class="payment-option-btn payment-from-savings" onclick="processPaymentFromSource('savings')">💰 من الادخار</button>
+                </div>
+                <button class="btn btn-gray" style="margin-top:8px; padding:8px; font-size:13px;" onclick="hidePaymentOptions()">إلغاء</button>
+            </div>
+            <button id="debtUpdateBtn" class="btn btn-update" onclick="confirmDebtUpdate()" style="padding:10px; margin-top:8px;">✅ تأكيد تعديل المبلغ</button>
+        </div>
+        <table>
+            <thead><tr><th class="checkbox-column"></th><th>التاريخ</th><th>المبلغ</th><th>نوع</th><th>تفاصيل</th><th>حذف</th></tr></thead>
+            <tbody id="debtOpsTable"></tbody>
+        </table>
+    </div>
+
+    <!-- سجل المدفوعات -->
+    <div id="tabDebtPaid" class="page">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div class="store-name-badge" id="currentStoreNamePaid"></div>
+                <button class="btn btn-gray btn-sm" onclick="goBackToOps()">🔙 رجوع</button>
+            </div>
+            <div class="section-label">📜 سجل المشتريات المدفوعة</div>
+        </div>
+        <table style="border-collapse: separate; border-spacing: 0 4px;">
+            <thead><tr><th>التاريخ</th><th>المبلغ</th><th>نوع</th><th>تفاصيل</th><th>المصدر</th><th>حذف</th></tr></thead>
+            <tbody id="debtPaidTable"></tbody>
+        </table>
+    </div>
+
+    <!-- تفاصيل السلع -->
+    <div id="tabDebtDet" class="page">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div class="store-name-badge" id="currentStoreNameDet"></div>
+                <button class="btn btn-blue btn-sm" onclick="printDebtDetails()">🖨️ طباعة</button>
+            </div>
+            <div id="lockMsgDebt">⚠️ تم تجاوز المبلغ الأصلي! يجب تعديل العملية أولاً.</div>
+            <div id="debtDetForm">
+                <input type="text" id="debtDItem" placeholder="اسم السلعة">
+                <div style="display:flex; gap:8px;">
+                    <input type="number" id="debtDQty" placeholder="الكمية" value="1">
+                    <input type="number" id="debtDPrc" placeholder="السعر">
+                </div>
+                <button class="btn btn-orange" onclick="addDebtDet()">➕ إضافة سلعة</button>
+            </div>
+        </div>
+        <table>
+            <thead><tr style="background: var(--orange);"><th>السلعة</th><th>الكمية</th><th>المبلغ</th><th>إزالة</th></tr></thead>
+            <tbody id="debtDetTable"></tbody>
+        </table>
+    </div>
+
+    <!-- الادخار العادي -->
+    <div id="tabSave" class="page">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">💰</span>
+                <div class="card-title">الادخار الشخصي</div>
+            </div>
+            <input type="text" id="sPlace" placeholder="المكان / الصندوق">
+            <input type="number" id="sAmt" placeholder="المبلغ المدخر">
+            <button class="btn btn-green" onclick="addSaving()">إيداع في الادخار</button>
+        </div>
+        <table>
+            <thead>
+                <tr><th>المكان</th><th>المدخر</th><th>المستهلك</th><th>المتبقي</th><th>حذف</th></tr>
+            </thead>
+            <tbody id="savingsTable"></tbody>
+        </table>
+    </div>
+
+    <!-- الادخار السيادي -->
+    <div id="tabSovereignSavings" class="page">
+        <div class="card" style="text-align: center; background: var(--navy);">
+            <div class="section-label" style="justify-content:center; color: rgba(255,255,255,0.6); margin-bottom: 6px;">💰 إجمالي المبلغ المدخل</div>
+            <div id="sovereignTotalAmount" style="font-size: 28px; font-weight: 900; color: var(--gold);">0 دج</div>
+            <div class="section-label" style="justify-content:center; color: rgba(255,255,255,0.5); margin-bottom: 2px; font-size:12px;">🏦 حساب الادخار السيادي</div>
+            <div id="sovereignRetainedTotal" style="font-size: 20px; font-weight: 800; color: var(--teal);">0 دج</div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">🏦</span>
+                <div class="card-title">الادخار السيادي</div>
+            </div>
+            <div class="card-subtitle">المتبقي بعد نسبة الاحتفاظ يذهب للادخار العادي</div>
+            <input type="month" id="ssMonth" placeholder="الشهر">
+            <input type="number" id="ssAmount" placeholder="المبلغ">
+            <input type="number" id="ssRetention" placeholder="مبلغ الاحتفاظ (الادخار السيادي)" min="0">
+            <button class="btn btn-primary" onclick="addSovereignSaving()">➕ إضافة</button>
+        </div>
+        <table>
+            <thead>
+                <tr><th>الشهر</th><th>المبلغ الأصلي</th><th>الادخار السيادي</th><th>المحول للادخار</th><th>حذف</th></tr>
+            </thead>
+            <tbody id="sovereignTable"></tbody>
+        </table>
+    </div>
+
+    <!-- المجاميع النهائية -->
+    <div id="tabTotals" class="page">
+        <div class="card">
+            <table class="totals-table">
+                <thead>
+                    <tr><th></th><th>الإجمالي</th><th>المستهلك</th><th>الباقي</th></tr>
+                </thead>
+                <tbody>
+                    <tr class="row-savings">
+                        <td>💰 الادخار</td>
+                        <td id="totSavingsTotal">0 دج</td>
+                        <td id="totSavingsConsumed">0 دج</td>
+                        <td id="totSavingsRemaining">0 دج</td>
+                    </tr>
+                    <tr class="row-borrow">
+                        <td>💸 السلف</td>
+                        <td id="totBorrowsTotal">0 دج</td>
+                        <td id="totBorrowsConsumed">0 دج</td>
+                        <td id="totBorrowsRemaining">0 دج</td>
+                    </tr>
+                    <tr class="row-purchases">
+                        <td>🛒 المشتريات</td>
+                        <td id="totPurchasesTotal">0 دج</td>
+                        <td>-</td>
+                        <td id="totPurchasesRemaining">0 دج</td>
+                    </tr>
+                    <tr class="row-paid-detail">
+                        <td>💰 مدفوعات التجار</td>
+                        <td id="totPaidToStores">0 دج</td>
+                        <td></td><td></td>
+                    </tr>
+                    <tr class="net-row">
+                        <td colspan="4">
+                            <div style="display: flex; justify-content: space-around; padding: 4px 0;">
+                                <div style="text-align: center;">
+                                    <div style="font-size:12px; color: var(--text-mid); margin-bottom: 4px;">صافي المستهلك</div>
+                                    <div id="netConsumed" class="total-value" style="font-size: 24px;">0 دج</div>
+                                    <div style="font-size: 10px; color: var(--text-light);">مدفوعات التجار - استهلاك الادخار والسلف</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size:12px; color: var(--text-mid); margin-bottom: 4px;">صافي الباقي</div>
+                                    <div id="netRemaining" class="total-value" style="font-size: 24px;">0 دج</div>
+                                    <div style="font-size: 10px; color: var(--text-light);">المتبقي من الادخار - المتبقي من السلف</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- سكريبت PWA -->
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+            .then(() => console.log('✅ SW registered'))
+            .catch(e => console.warn('SW error:', e));
+    }
+    
+    let deferredPrompt;
+    const installMessage = document.getElementById('installMessage');
+    const installBtn = document.getElementById('installBtn');
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installMessage.style.display = 'block';
+    });
+    installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            installMessage.style.display = 'none';
+        }
+        deferredPrompt = null;
+    });
+</script>
+
+<script>
+    (function() {
+        const STORAGE_KEY = "MY_STABLE_FINANCE_v38";
+        
+        let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || { 
+            stores: {},
+            borrows: [],
+            savings: [],
+            sovereignSavings: []
+        };
+
+        let curStore = "";
+        let curStoreIdx = null;
+        let editStoreIdx = null;
+        let selectedPurchaseIndices = [];
+        let pageStack = ['tabHomepage'];
+        let financialChart = null;
+
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.toggle('open');
+            overlay.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
+        };
+
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+            const indicators = document.querySelectorAll('.auto-save-indicator');
+            indicators.forEach(el => {
+                el.classList.add('saving-pulse');
+                setTimeout(() => el.classList.remove('saving-pulse'), 500);
+            });
+        }
+
+        function updateDynamicTitle(icon, text) {
+            document.getElementById('dynamicTitle').innerHTML = `<span>${icon}</span> ${text}`;
+        }
+
+        window.showPage = function(id, push = true) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if (push && pageStack[pageStack.length - 1] !== id) pageStack.push(id);
+            
+            const backBtn = document.getElementById('btnBack');
+            if (id === 'tabHomepage' || id === 'tabBorrow' || id === 'tabDebtHome') {
+                backBtn.style.display = 'none';
+            } else {
+                backBtn.style.display = 'block';
+            }
+
+            if (id === 'tabHomepage') { 
+                updateDynamicTitle('🏠', 'الرئيسية · الرسم البياني');
+                updateHomepageChart(); 
+            }
+            else if (id === 'tabBorrow') { 
+                updateDynamicTitle('💸', 'السلف (علي)');
+                renderBorrows(); 
+            }
+            else if (id === 'tabDebtHome') { 
+                updateDynamicTitle('🛒', 'المشتريات بالدين');
+                renderStoresTable(); 
+            }
+            else if (id === 'tabDebtOps') {
+                updateDynamicTitle('🛒', `${curStore} · العمليات`);
+                document.getElementById('currentStoreName').innerText = curStore;
+                renderDebtOps();
+                updateDebtStats();
+            }
+            else if (id === 'tabDebtPaid') {
+                updateDynamicTitle('📜', `${curStore} · المدفوعات`);
+                document.getElementById('currentStoreNamePaid').innerText = curStore;
+                renderDebtPaid();
+            }
+            else if (id === 'tabDebtDet') {
+                updateDynamicTitle('📋', 'تفاصيل المشتريات');
+                document.getElementById('currentStoreNameDet').innerText = curStore;
+                renderDebtDet();
+            }
+            else if (id === 'tabSave') { 
+                updateDynamicTitle('💰', 'الادخار الشخصي');
+                renderSavings(); 
+            }
+            else if (id === 'tabSovereignSavings') { 
+                updateDynamicTitle('🏦', 'الادخار السيادي');
+                renderSovereignSavings(); 
+            }
+            else if (id === 'tabTotals') { 
+                updateDynamicTitle('📊', 'المجاميع النهائية');
+                calcFinal(); 
+            }
+
+            if (document.getElementById('sidebar').classList.contains('open')) window.toggleSidebar();
+        };
+
+        window.goBack = function() {
+            if (pageStack.length > 1) {
+                pageStack.pop();
+                window.showPage(pageStack[pageStack.length - 1], false);
+            }
+        };
+
+        function getTotalBorrows() { return db.borrows.reduce((acc, b) => acc + b.amount, 0); }
+        function getTotalBorrowsConsumed() { return db.borrows.reduce((acc, b) => acc + (b.consumed || 0), 0); }
+        function getTotalBorrowsRemaining() { return getTotalBorrows() - getTotalBorrowsConsumed(); }
+        function getTotalSavings() { return db.savings.reduce((acc, s) => acc + s.amount, 0); }
+        function getTotalSavingsConsumed() { return db.savings.reduce((acc, s) => acc + (s.consumed || 0), 0); }
+        function getTotalSavingsRemaining() { return getTotalSavings() - getTotalSavingsConsumed(); }
+        function getTotalStoreDebt() {
+            let total = 0;
+            for (let n in db.stores) { total += (db.stores[n].total - db.stores[n].paid); }
+            return total;
+        }
+        function getTotalPaidToStores() {
+            let total = 0;
+            for (let n in db.stores) { total += db.stores[n].paid; }
+            return total;
+        }
+        function getTotalPaidFromSavings() {
+            let total = 0;
+            for (let n in db.stores) {
+                const history = db.stores[n].history || [];
+                for (let op of history) {
+                    if (op.type === 'دفع' && op.source === 'savings') total += op.amount;
+                }
+            }
+            return total;
+        }
+        function getTotalSovereignAmount() { return db.sovereignSavings.reduce((acc, s) => acc + s.amount, 0); }
+
+        function updateStatusMessage() {
+            const savingsRemaining = getTotalSavingsRemaining();
+            const borrowsRemaining = getTotalBorrowsRemaining();
+            const statusDiv = document.getElementById('statusMessage');
+            let html = '';
+            if (savingsRemaining > borrowsRemaining) {
+                html = '<div class="status-message status-positive"><span class="status-emoji">😊</span>الوضع جيد · المتبقي من الادخار أكبر</div>';
+            } else if (savingsRemaining < borrowsRemaining) {
+                html = '<div class="status-message status-negative"><span class="status-emoji">😱</span>الوضع سيء · يرجى الحذر</div>';
+            } else {
+                html = '<div class="status-message status-neutral"><span class="status-emoji">😐</span>الوضع متوازن</div>';
+            }
+            statusDiv.innerHTML = html;
+        }
+
+        function updatePersonalAccount() {
+            const debt = getTotalStoreDebt();
+            const paidFromSavings = getTotalPaidFromSavings();
+            const remainingSavings = getTotalSavingsRemaining();
+            document.getElementById('personalDebt').innerText = debt + ' دج';
+            document.getElementById('personalPaidFromSavings').innerText = paidFromSavings + ' دج';
+            document.getElementById('personalRemainingSavings').innerText = remainingSavings + ' دج';
+        }
+
+        function updateHomepageChart() {
+            let totalBorrows = db.borrows.reduce((acc, b) => acc + b.amount, 0);
+            let totalPurchases = getTotalStoreDebt();
+            let totalSavings = db.savings.reduce((acc, s) => acc + s.amount, 0);
+            const ctx = document.getElementById('financialChart').getContext('2d');
+            if (financialChart) financialChart.destroy();
+            financialChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['السلف (علي)', 'المشتريات بالدين', 'الادخار'],
+                    datasets: [{
+                        label: 'المبلغ (دج)',
+                        data: [totalBorrows, totalPurchases, totalSavings],
+                        backgroundColor: ['rgba(59,130,246,0.85)', 'rgba(249,115,22,0.85)', 'rgba(46,204,113,0.85)'],
+                        borderRadius: 10,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { rtl: true, titleAlign: 'right', bodyAlign: 'right',
+                            backgroundColor: '#1a1f3a', titleColor: '#f5c842', bodyColor: '#fff',
+                            padding: 10, cornerRadius: 10
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f0f2f8' }, ticks: { color: '#8892b0', font: { family: 'Cairo' } } },
+                        x: { grid: { display: false }, ticks: { color: '#4a5280', font: { family: 'Cairo', weight: '700' } } }
+                    }
+                }
+            });
+            updateStatusMessage();
+            updatePersonalAccount();
+        }
+
+        // ================ السلف ================
+        window.addBorrow = function() {
+            let name = document.getElementById('bName').value.trim();
+            let amt = parseFloat(document.getElementById('bAmt').value);
+            if (!name || !amt) return alert("املأ جميع الحقول");
+            db.borrows.push({ name, amount: amt, consumed: 0 });
+            saveToStorage(); renderBorrows();
+            document.getElementById('bName').value = '';
+            document.getElementById('bAmt').value = '';
+        };
+        window.delBorrow = function(idx) {
+            if (confirm(`حذف السلفة من "${db.borrows[idx].name}"؟`)) {
+                db.borrows.splice(idx, 1); saveToStorage(); renderBorrows();
+            }
+        };
+        function renderBorrows() {
+            let tbody = document.getElementById('borrowTable');
+            tbody.innerHTML = '';
+            db.borrows.forEach((entry, i) => {
+                const consumed = entry.consumed || 0;
+                const remaining = entry.amount - consumed;
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${entry.name}</td><td>${entry.amount} دج</td><td style="color:var(--orange)">${consumed} دج</td><td style="color:var(--blue)">${remaining} دج</td><td><button class="btn-del" onclick="delBorrow(${i})">🗑</button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ================ المشتريات بالدين ================
+        window.addStore = function() {
+            let name = document.getElementById('storeName').value.trim();
+            let init = parseFloat(document.getElementById('storeInit').value) || 0;
+            if (!name) return alert("أدخل اسم التاجر");
+            if (!db.stores[name]) {
+                db.stores[name] = { total: init, paid: 0, history: [], ops: [] };
+            }
+            saveToStorage(); renderStoresTable();
+            document.getElementById('storeName').value = '';
+            document.getElementById('storeInit').value = '';
+        };
+        window.delStore = function(name) {
+            if (confirm(`حذف "${name}" وجميع عملياته؟`)) {
+                delete db.stores[name]; saveToStorage(); renderStoresTable();
+            }
+        };
+        window.openStore = function(name) {
+            curStore = name;
+            curStoreIdx = null;
+            showPage('tabDebtOps');
+        };
+        function renderStoresTable() {
+            let grandTotal = 0;
+            let tbody = document.getElementById('storesTableBody');
+            tbody.innerHTML = '';
+
+            // ترتيب تنازلي: الباقي الأكبر أولاً
+            const sorted = Object.entries(db.stores).sort((a, b) => {
+                const remA = a[1].total - a[1].paid;
+                const remB = b[1].total - b[1].paid;
+                return remB - remA;
+            });
+
+            sorted.forEach(([name, s]) => {
+                const remaining = s.total - s.paid;
+                grandTotal += remaining;
+                const isPaid   = remaining <= 0;
+                const isHigh   = remaining > 0 && remaining >= s.total * 0.7;
+                const isMid    = remaining > 0 && remaining >= s.total * 0.3 && remaining < s.total * 0.7;
+
+                // لون الصف حسب الباقي
+                let rowBg = '';
+                let remColor = 'var(--orange)';
+                if (isPaid) {
+                    rowBg    = 'rgba(231,76,111,0.13)';
+                    remColor = 'var(--rose)';
+                } else if (isHigh) {
+                    rowBg    = 'rgba(249,115,22,0.10)';
+                    remColor = 'var(--orange)';
+                } else if (isMid) {
+                    rowBg    = 'rgba(245,200,66,0.08)';
+                    remColor = 'var(--gold-dark)';
+                } else {
+                    rowBg    = 'rgba(46,204,113,0.08)';
+                    remColor = 'var(--green)';
+                }
+
+                let tr = document.createElement('tr');
+                tr.style.background = rowBg;
+                tr.style.transition  = '0.2s';
+                tr.innerHTML = `
+                    <td style="cursor:pointer;color:var(--blue);font-weight:900;" onclick="openStore('${name}')">
+                        ${isPaid ? '✅' : ''} ${name}
+                    </td>
+                    <td>${s.total} دج</td>
+                    <td style="color:var(--green)">${s.paid} دج</td>
+                    <td style="color:${remColor};font-weight:${isPaid?'900':'700'}">
+                        ${isPaid ? '✔ مسدد' : remaining + ' دج'}
+                    </td>
+                    <td><button class="btn-del" onclick="delStore('${name}')">🗑</button></td>`;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('grandDebtOwed').innerText = grandTotal + ' دج';
+        }
+
+        window.updateDebtStats = function() {
+            if (!curStore || !db.stores[curStore]) return;
+            const s = db.stores[curStore];
+            document.getElementById('debtStatsTotal').innerText = s.total;
+            document.getElementById('debtStatsPaid').innerText = s.paid;
+            document.getElementById('debtStatsRemaining').innerText = s.total - s.paid;
+        };
+
+        window.showPaymentOptions = function() {
+            document.getElementById('paymentOptions').style.display = 'block';
+            document.getElementById('debtNormalBtns').style.display = 'none';
+        };
+        window.hidePaymentOptions = function() {
+            document.getElementById('paymentOptions').style.display = 'none';
+            document.getElementById('debtNormalBtns').style.display = 'flex';
+        };
+
+        window.processPaymentFromSource = function(source) {
+            const amt = parseFloat(document.getElementById('debtOAmt').value);
+            const date = document.getElementById('debtODate').value;
+            if (!amt || !date) return alert("أدخل المبلغ والتاريخ");
+            const s = db.stores[curStore];
+            const remaining = s.total - s.paid;
+            if (amt > remaining) return alert("المبلغ المدفوع أكبر من المتبقي!");
+            if (source === 'savings') {
+                const totalSavingsRemaining = getTotalSavingsRemaining();
+                if (amt > totalSavingsRemaining) return alert("الادخار غير كافٍ!");
+                let leftToPay = amt;
+                const usedSavings = []; // تتبع من أين صُرف المبلغ
+                for (let sv of db.savings) {
+                    if (leftToPay <= 0) break;
+                    const svRemaining = sv.amount - (sv.consumed || 0);
+                    if (svRemaining <= 0) continue;
+                    const take = Math.min(leftToPay, svRemaining);
+                    sv.consumed = (sv.consumed || 0) + take;
+                    usedSavings.push({ place: sv.place, amount: take });
+                    leftToPay -= take;
+                }
+                // احفظ تفاصيل الادخار المستهلك مع العملية
+                s.history = s.history || [];
+                const selectedIndices = [...selectedPurchaseIndices];
+                s.history.push({ type: 'دفع', amount: amt, date, source, linkedOps: selectedIndices, usedSavings });
+                s.paid += amt;
+                if (selectedIndices.length > 0) {
+                    selectedIndices.forEach(idx => { if (s.ops[idx]) s.ops[idx].settled = true; });
+                    selectedPurchaseIndices = [];
+                }
+                hidePaymentOptions();
+                saveToStorage(); renderStoresTable(); renderDebtOps(); renderDebtPaid();
+                document.getElementById('debtOAmt').value = '';
+                updateDebtStats(); updatePersonalStats();
+                return;
+            } else {
+                const totalBorrowsRemaining = getTotalBorrowsRemaining();
+                if (amt > totalBorrowsRemaining) return alert("السلف غير كافية!");
+                let leftToPay = amt;
+                for (let bw of db.borrows) {
+                    if (leftToPay <= 0) break;
+                    const bwRemaining = bw.amount - (bw.consumed || 0);
+                    const take = Math.min(leftToPay, bwRemaining);
+                    bw.consumed = (bw.consumed || 0) + take;
+                    leftToPay -= take;
+                }
+            }
+            s.paid += amt;
+            s.history = s.history || [];
+            const selectedIndices = [...selectedPurchaseIndices];
+            s.history.push({ type: 'دفع', amount: amt, date, source, linkedOps: selectedIndices });
+            if (selectedIndices.length > 0) {
+                selectedIndices.forEach(idx => {
+                    if (s.ops[idx]) s.ops[idx].settled = true;
+                });
+                selectedPurchaseIndices = [];
+            }
+            hidePaymentOptions();
+            saveToStorage(); renderDebtOps(); updateDebtStats();
+            document.getElementById('debtOAmt').value = '';
+        };
+
+        window.addDebtOp = function(type) {
+            const amt = parseFloat(document.getElementById('debtOAmt').value);
+            const date = document.getElementById('debtODate').value;
+            if (!amt || !date) return alert("أدخل المبلغ والتاريخ");
+            const s = db.stores[curStore];
+            s.ops = s.ops || [];
+            const newOp = { type, amount: amt, date, details: [], settled: false };
+            s.ops.push(newOp);
+            s.total += amt;
+            saveToStorage(); renderDebtOps(); updateDebtStats();
+            document.getElementById('debtOAmt').value = '';
+        };
+
+        window.delDebtOp = function(idx) {
+            const s = db.stores[curStore];
+            const op = s.ops[idx];
+            if (confirm(`حذف عملية "${op.type}" بمبلغ ${op.amount} دج؟`)) {
+                s.total -= op.amount;
+                s.ops.splice(idx, 1);
+                saveToStorage(); renderDebtOps(); updateDebtStats();
+            }
+        };
+
+        window.editDebtOp = function(idx) {
+            const s = db.stores[curStore];
+            const op = s.ops[idx];
+            document.getElementById('debtOAmt').value = op.amount;
+            curStoreIdx = idx;
+            editStoreIdx = idx;
+            document.getElementById('debtUpdateBtn').style.display = 'block';
+            document.getElementById('debtNormalBtns').style.display = 'none';
+        };
+
+        window.confirmDebtUpdate = function() {
+            const newAmt = parseFloat(document.getElementById('debtOAmt').value);
+            if (!newAmt) return alert("أدخل المبلغ الجديد");
+            const s = db.stores[curStore];
+            const oldAmt = s.ops[editStoreIdx].amount;
+            s.total = s.total - oldAmt + newAmt;
+            s.ops[editStoreIdx].amount = newAmt;
+            document.getElementById('debtUpdateBtn').style.display = 'none';
+            document.getElementById('debtNormalBtns').style.display = 'flex';
+            document.getElementById('debtOAmt').value = '';
+            editStoreIdx = null;
+            saveToStorage(); renderDebtOps(); updateDebtStats();
+        };
+
+        window.toggleSelection = function(idx) {
+            const pos = selectedPurchaseIndices.indexOf(idx);
+            if (pos === -1) selectedPurchaseIndices.push(idx);
+            else selectedPurchaseIndices.splice(pos, 1);
+            renderDebtOps();
+        };
+
+        function renderDebtOps() {
+            const s = db.stores[curStore];
+            const tbody = document.getElementById('debtOpsTable');
+            tbody.innerHTML = '';
+            if (!s || !s.ops) return;
+            s.ops.forEach((op, i) => {
+                if (op.settled) return;
+                const isSelected = selectedPurchaseIndices.includes(i);
+                let tr = document.createElement('tr');
+                tr.className = op.details && op.details.length > 0 ? 'purchase-with-details' : 'purchase-no-details';
+                if (isSelected) tr.style.background = 'rgba(245,200,66,0.15)';
+                const detBtn = op.type === 'مشتريات' ? `<button class="btn-del" style="background:#dbeafe;color:#1d4ed8;" onclick="openDetPage(${i})">📋</button>` : '-';
+                tr.innerHTML = `<td class="checkbox-column"><input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSelection(${i})"></td><td style="font-size:12px">${op.date || '-'}</td><td style="color:var(--orange)">${op.amount} دج</td><td>${op.type}</td><td>${detBtn}</td><td><button class="btn-del" onclick="editDebtOp(${i})">✏️</button> <button class="btn-del" onclick="delDebtOp(${i})">🗑</button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.showPaidRecords = function() { showPage('tabDebtPaid'); };
+        window.goBackToOps = function() { showPage('tabDebtOps', false); };
+
+        function renderDebtPaid() {
+            const s = db.stores[curStore];
+            const tbody = document.getElementById('debtPaidTable');
+            tbody.innerHTML = '';
+            if (!s) return;
+            const history = s.history || [];
+            const ops = s.ops || [];
+            history.forEach((op, hi) => {
+                if (op.type !== 'دفع') return;
+                const linkedOps = op.linkedOps || [];
+                if (linkedOps.length > 0) {
+                    let tbodyGroup = document.createElement('tbody');
+                    tbodyGroup.className = 'settled-pair';
+                    linkedOps.forEach(oi => {
+                        const purchase = ops[oi];
+                        if (!purchase) return;
+                        let tr = document.createElement('tr');
+                        tr.className = 'settled-purchase';
+                        const detBtn = purchase.details && purchase.details.length > 0 ? `<button class="btn-del" style="background:#fee2e2;" onclick="openDetPageFromPaid(${oi})">📋</button>` : '-';
+                        tr.innerHTML = `<td style="font-size:12px">${purchase.date || '-'}</td><td style="color:var(--rose)">${purchase.amount} دج</td><td>🛒 مشتريات</td><td>${detBtn}</td><td>-</td><td><button class="btn-del" onclick="delPaidOp('purchase',${oi},${hi})">🗑</button></td>`;
+                        tbodyGroup.appendChild(tr);
+                    });
+                    let payTr = document.createElement('tr');
+                    payTr.className = 'settled-payment';
+                    const srcLabel = op.source === 'savings' ? '💰 من الادخار' : '💸 من السلف';
+                    payTr.innerHTML = `<td style="font-size:12px">${op.date || '-'}</td><td style="color:var(--rose)">${op.amount} دج</td><td>💰 دفع</td><td>-</td><td>${srcLabel}</td><td><button class="btn-del" onclick="delPaidOp('payment',null,${hi})">🗑</button></td>`;
+                    tbodyGroup.appendChild(payTr);
+                    tbody.appendChild(tbodyGroup);
+                } else {
+                    let tr = document.createElement('tr');
+                    tr.className = 'payment-row';
+                    const srcLabel = op.source === 'savings' ? '💰 من الادخار' : '💸 من السلف';
+                    tr.innerHTML = `<td style="font-size:12px">${op.date || '-'}</td><td style="color:var(--green)">${op.amount} دج</td><td>💰 دفع</td><td>-</td><td>${srcLabel}</td><td><button class="btn-del" onclick="delPaidOp('payment',null,${hi})">🗑</button></td>`;
+                    tbody.appendChild(tr);
+                }
+            });
+        }
+
+        window.delPaidOp = function(opType, purchaseIdx, historyIdx) {
+            const s = db.stores[curStore];
+            if (!confirm('حذف هذه العملية؟')) return;
+            const histOp = s.history[historyIdx];
+            if (opType === 'payment') {
+                const amt = histOp.amount;
+                s.paid -= amt;
+                if (histOp.source === 'savings') {
+                    let leftToRestore = amt;
+                    for (let i = db.savings.length - 1; i >= 0 && leftToRestore > 0; i--) {
+                        const take = Math.min(db.savings[i].consumed || 0, leftToRestore);
+                        db.savings[i].consumed -= take;
+                        leftToRestore -= take;
+                    }
+                } else {
+                    let leftToRestore = amt;
+                    for (let i = db.borrows.length - 1; i >= 0 && leftToRestore > 0; i--) {
+                        const take = Math.min(db.borrows[i].consumed || 0, leftToRestore);
+                        db.borrows[i].consumed -= take;
+                        leftToRestore -= take;
+                    }
+                }
+                const linkedOps = histOp.linkedOps || [];
+                linkedOps.forEach(oi => { if (s.ops[oi]) s.ops[oi].settled = false; });
+                s.history.splice(historyIdx, 1);
+            } else {
+                if (purchaseIdx !== null && s.ops[purchaseIdx]) {
+                    s.total -= s.ops[purchaseIdx].amount;
+                    s.ops.splice(purchaseIdx, 1);
+                    const linked = histOp.linkedOps || [];
+                    histOp.linkedOps = linked.filter(x => x !== purchaseIdx).map(x => x > purchaseIdx ? x - 1 : x);
+                }
+            }
+            saveToStorage(); renderDebtPaid(); updateDebtStats();
+        };
+
+        window.openDetPage = function(opIdx) {
+            curStoreIdx = opIdx;
+            showPage('tabDebtDet');
+        };
+        window.openDetPageFromPaid = function(opIdx) {
+            curStoreIdx = opIdx;
+            showPage('tabDebtDet');
+        };
+
+        window.renderDebtDet = function() {
+            const s = db.stores[curStore];
+            const op = s && s.ops ? s.ops[curStoreIdx] : null;
+            const tbody = document.getElementById('debtDetTable');
+            tbody.innerHTML = '';
+            const lockMsg = document.getElementById('lockMsgDebt');
+            const detForm = document.getElementById('debtDetForm');
+            if (!op) return;
+            let totalDet = op.details ? op.details.reduce((a, d) => a + d.t, 0) : 0;
+            if (totalDet > op.amount) {
+                lockMsg.style.display = 'block'; detForm.style.display = 'none';
+            } else {
+                lockMsg.style.display = 'none'; detForm.style.display = 'block';
+            }
+            if (!op.details) return;
+            op.details.forEach((d, di) => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${d.n}</td><td>${d.q}</td><td style="color:var(--orange)">${d.t} دج</td><td><button class="btn-del" onclick="delDebtDet(${di})">🗑</button></td>`;
+                tbody.appendChild(tr);
+            });
+        };
+
+        window.addDebtDet = function() {
+            const item = document.getElementById('debtDItem').value.trim();
+            const qty = parseFloat(document.getElementById('debtDQty').value) || 1;
+            const price = parseFloat(document.getElementById('debtDPrc').value);
+            if (!item || !price) return alert("أدخل اسم السلعة والسعر");
+            const s = db.stores[curStore];
+            const op = s.ops[curStoreIdx];
+            op.details = op.details || [];
+            const total = qty * price;
+            const currentTotal = op.details.reduce((a, d) => a + d.t, 0) + total;
+            if (currentTotal > op.amount) return alert("إجمالي السلع تجاوز مبلغ العملية!");
+            op.details.push({ n: item, q: qty, t: total });
+            saveToStorage(); renderDebtDet();
+            document.getElementById('debtDItem').value = '';
+            document.getElementById('debtDQty').value = '1';
+            document.getElementById('debtDPrc').value = '';
+        };
+
+        window.delDebtDet = function(di) {
+            const s = db.stores[curStore];
+            s.ops[curStoreIdx].details.splice(di, 1);
+            saveToStorage(); renderDebtDet();
+        };
+
+        // ================ الادخار ================
+        window.addSaving = function() {
+            let place = document.getElementById('sPlace').value.trim();
+            let amt = parseFloat(document.getElementById('sAmt').value);
+            if (!place || !amt) return alert("املأ جميع الحقول");
+            db.savings.push({ place, amount: amt, consumed: 0 });
+            saveToStorage(); renderSavings();
+            document.getElementById('sPlace').value = '';
+            document.getElementById('sAmt').value = '';
+        };
+        window.delSaving = function(idx) {
+            if (confirm(`حذف مبلغ "${db.savings[idx].place}"؟`)) {
+                db.savings.splice(idx, 1); saveToStorage(); renderSavings();
+            }
+        };
+        function renderSavings() {
+            const tbody = document.getElementById('savingsTable');
+            tbody.innerHTML = '';
+            db.savings.forEach((s, i) => {
+                const consumed = s.consumed || 0;
+                const remaining = s.amount - consumed;
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${s.place}</td><td>${s.amount} دج</td><td style="color:var(--orange)">${consumed} دج</td><td style="color:var(--green)">${remaining} دج</td><td><button class="btn-del" onclick="delSaving(${i})">🗑</button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ================ الادخار السيادي ================
+        window.addSovereignSaving = function() {
+            const month = document.getElementById('ssMonth').value;
+            const amount = parseFloat(document.getElementById('ssAmount').value);
+            const retention = parseFloat(document.getElementById('ssRetention').value);
+            if (!month || !amount || isNaN(retention)) return alert("املأ جميع الحقول");
+            // retainedAmount = مبلغ الاحتفاظ المدخل مباشرة (الادخار السيادي)
+            const retainedAmount = retention; // هنا retention = مبلغ وليس نسبة
+            const transferredAmount = amount - retainedAmount;
+            db.sovereignSavings.push({ month, amount: retainedAmount, originalAmount: amount, retention: retainedAmount, transferred: transferredAmount });
+            if (transferredAmount > 0) {
+                db.savings.push({ place: `ادخار سيادي - ${month}`, amount: transferredAmount, consumed: 0 });
+            }
+            saveToStorage(); renderSovereignSavings(); renderSavings();
+            document.getElementById('ssMonth').value = '';
+            document.getElementById('ssAmount').value = '';
+            document.getElementById('ssRetention').value = '';
+        };
+        window.delSovereignSaving = function(idx) {
+            if (!confirm('حذف هذا المدخر السيادي؟\nسيتم حذف الادخار المرتبط وإرجاع الدفعات كدين.')) return;
+
+            const sov = db.sovereignSavings[idx];
+            const savLabel = `ادخار سيادي - ${sov.month}`;
+
+            // 1. احسب كم صُرف من هذا الادخار بالضبط
+            const savIdx = db.savings.findIndex(sv => sv.place === savLabel);
+            const consumedFromThis = savIdx !== -1 ? (db.savings[savIdx].consumed || 0) : 0;
+
+            // 2. إرجاع الدفعات من كل التجار
+            if (consumedFromThis > 0) {
+                let leftToReverse = consumedFromThis;
+                for (let storeName in db.stores) {
+                    if (leftToReverse <= 0) break;
+                    const store = db.stores[storeName];
+                    store.history = store.history || [];
+                    // ابحث في history عن دفعات استخدمت هذا الادخار
+                    for (let h of store.history) {
+                        if (leftToReverse <= 0) break;
+                        if (h.source !== 'savings' || !h.usedSavings) continue;
+                        for (let u of h.usedSavings) {
+                            if (u.place !== savLabel) continue;
+                            // أعد هذا المبلغ كدين
+                            const reverseAmt = Math.min(u.amount, leftToReverse);
+                            store.paid = Math.max(0, store.paid - reverseAmt);
+                            leftToReverse -= reverseAmt;
+                            // سجّل ملاحظة على العملية
+                            h.note = (h.note || '') + ` | تم إلغاء ${reverseAmt} دج (حذف ادخار سيادي ${sov.month})`;
+                        }
+                    }
+                }
+            }
+
+            // 3. حذف سجل الادخار العادي
+            if (savIdx !== -1) db.savings.splice(savIdx, 1);
+
+            // 4. حذف السجل السيادي
+            db.sovereignSavings.splice(idx, 1);
+
+            saveToStorage();
+            renderSovereignSavings();
+            renderSavings();
+            renderStoresTable();
+        };
+        function renderSovereignSavings() {
+            const tbody = document.getElementById('sovereignTable');
+            tbody.innerHTML = '';
+            let totalOriginal    = 0;
+            let totalRetained    = 0;
+            let totalTransferred = 0;
+            db.sovereignSavings.forEach((s, i) => {
+                const orig        = s.originalAmount || s.amount;
+                const retained    = s.amount;
+                const transferred = s.transferred || 0;
+                totalOriginal    += orig;
+                totalRetained    += retained;
+                totalTransferred += transferred;
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${s.month}</td><td>${orig} دج</td><td style="color:var(--teal);font-weight:800">${retained} دج</td><td style="color:var(--green)">${transferred} دج</td><td><button class="btn-del" onclick="delSovereignSaving(${i})">🗑</button></td>`;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('sovereignTotalAmount').innerText    = totalOriginal    + ' دج';
+            document.getElementById('sovereignRetainedTotal').innerText  = totalRetained    + ' دج';
+            // sovereignTransferredTotal محذوف
+        }
+
+        // ================ الطباعة ================
+        window.printStoreStatement = function() {
+            const s = db.stores[curStore];
+            if (!s) return;
+            const ops = s.ops || [];
+            let rowsHtml = '';
+            ops.forEach(op => {
+                rowsHtml += `<tr><td>${op.date || '-'}</td><td>${op.amount} دج</td><td>${op.type}</td><td>${op.settled ? 'مسدد' : 'قيد الانتظار'}</td></tr>`;
+            });
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`<html dir="rtl"><head><title>كشف حساب ${curStore}</title><style>body{font-family:Tahoma,Arial,sans-serif;padding:20px;}h1{text-align:center;color:#1a1f3a;}table{width:100%;border-collapse:collapse;margin-top:20px;}th{background:#1a1f3a;color:#f5c842;padding:10px;}td,th{border:1px solid #ddd;padding:8px;text-align:center;}</style></head><body><h1>كشف حساب: ${curStore}</h1><p style="text-align:center">الإجمالي: ${s.total} دج | المدفوع: ${s.paid} دج | المتبقي: ${s.total - s.paid} دج</p><table><thead><tr><th>التاريخ</th><th>المبلغ</th><th>النوع</th><th>الحالة</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`);
+            printWindow.document.close(); printWindow.print();
+        };
+
+        window.printDebtDetails = function() {
+            const s = db.stores[curStore];
+            const op = s && s.ops ? s.ops[curStoreIdx] : null;
+            if (!op) return;
+            const storeName = curStore;
+            const date = op.date || 'بدون تاريخ';
+            let detailsHtml = '';
+            if (op.details && op.details.length > 0) {
+                op.details.forEach(d => { detailsHtml += `<tr><td>${d.n}</td><td>${d.q}</td><td>${d.t} دج</td></tr>`; });
+            } else {
+                detailsHtml = '<tr><td colspan="3">لا توجد تفاصيل</td></tr>';
+            }
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`<html dir="rtl"><head><title>تفاصيل المشتريات</title><style>body{font-family:Tahoma,Arial,sans-serif;padding:20px;}h1{text-align:center;color:#1a1f3a;}.info{text-align:center;margin-bottom:20px;}table{width:100%;border-collapse:collapse;margin-top:20px;}th{background:#f97316;color:white;padding:10px;}td,th{border:1px solid #ddd;padding:8px;text-align:center;}</style></head><body><h1>تفاصيل المشتريات</h1><div class="info"><p><strong>التاجر:</strong> ${storeName}</p><p><strong>التاريخ:</strong> ${date}</p><p><strong>المبلغ الإجمالي:</strong> ${op.amount} دج</p></div><table><thead><tr><th>السلعة</th><th>الكمية</th><th>المبلغ</th></tr></thead><tbody>${detailsHtml}</tbody></table></body></html>`);
+            printWindow.document.close(); printWindow.print();
+        };
+
+        // ================ المجاميع ================
+        function calcFinal() {
+            const totalSavings = getTotalSavings();
+            const totalSavingsConsumed = getTotalSavingsConsumed();
+            const totalSavingsRemaining = getTotalSavingsRemaining();
+            const totalBorrows = getTotalBorrows();
+            const totalBorrowsConsumed = getTotalBorrowsConsumed();
+            const totalBorrowsRemaining = getTotalBorrowsRemaining();
+            const totalPurchases = getTotalStoreDebt();
+            const totalPaid = getTotalPaidToStores();
+            document.getElementById('totSavingsTotal').innerText = totalSavings + ' دج';
+            document.getElementById('totSavingsConsumed').innerText = totalSavingsConsumed + ' دج';
+            document.getElementById('totSavingsRemaining').innerText = totalSavingsRemaining + ' دج';
+            document.getElementById('totBorrowsTotal').innerText = totalBorrows + ' دج';
+            document.getElementById('totBorrowsConsumed').innerText = totalBorrowsConsumed + ' دج';
+            document.getElementById('totBorrowsRemaining').innerText = totalBorrowsRemaining + ' دج';
+            document.getElementById('totPurchasesTotal').innerText = totalPurchases + ' دج';
+            document.getElementById('totPurchasesRemaining').innerText = totalPurchases + ' دج';
+            document.getElementById('totPaidToStores').innerText = totalPaid + ' دج';
+            const netConsumed = totalPaid - (totalSavingsConsumed + totalBorrowsConsumed);
+            const netRemaining = totalSavingsRemaining - totalBorrowsRemaining;
+            const netConsumedEl = document.getElementById('netConsumed');
+            const netRemainingEl = document.getElementById('netRemaining');
+            netConsumedEl.innerText = netConsumed + ' دج';
+            netRemainingEl.innerText = netRemaining + ' دج';
+            netConsumedEl.className = netConsumed < 0 ? 'negative total-value' : (netConsumed > 0 ? 'positive total-value' : 'total-value');
+            netRemainingEl.className = netRemaining < 0 ? 'negative total-value' : (netRemaining > 0 ? 'positive total-value' : 'total-value');
+        }
+
+        // ================ التصدير/الاستيراد ================
+        window.exportData = function() {
+            const fileName = prompt("أدخل اسم الملف", "بيانات_مالية");
+            if (!fileName) return;
+            const dataStr = JSON.stringify(db, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fileName + '.json';
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+        };
+
+        window.importData = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedDb = JSON.parse(e.target.result);
+                    if (typeof importedDb !== 'object' || importedDb === null) throw new Error('ملف غير صالح');
+                    const defaultDb = { stores: {}, borrows: [], savings: [], sovereignSavings: [] };
+                    const mergedDb = {
+                        stores: importedDb.stores || defaultDb.stores,
+                        borrows: Array.isArray(importedDb.borrows) ? importedDb.borrows : defaultDb.borrows,
+                        savings: Array.isArray(importedDb.savings) ? importedDb.savings : defaultDb.savings,
+                        sovereignSavings: Array.isArray(importedDb.sovereignSavings) ? importedDb.sovereignSavings : defaultDb.sovereignSavings
+                    };
+                    if (confirm('سيتم استبدال جميع البيانات الحالية. هل تريد المتابعة؟')) {
+                        db = mergedDb; saveToStorage();
+                        renderBorrows(); renderStoresTable(); renderSavings(); renderSovereignSavings();
+                        if (document.getElementById('tabHomepage').classList.contains('active')) updateHomepageChart();
+                        if (document.getElementById('tabTotals').classList.contains('active')) calcFinal();
+                        alert('تم استيراد البيانات بنجاح.');
+                    }
+                } catch (error) { alert('خطأ في قراءة الملف. تأكد من أنه ملف JSON صحيح.'); }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        };
+
+        window.updateStatusMessage = updateStatusMessage;
+        window.hidePaymentOptions = hidePaymentOptions;
+        window.toggleSelection = toggleSelection;
+        window.calcFinal = calcFinal;
+        window.renderBorrows = renderBorrows;
+        window.renderStoresTable = renderStoresTable;
+        window.renderDebtOps = renderDebtOps;
+        window.renderDebtPaid = renderDebtPaid;
+        window.renderDebtDet = renderDebtDet;
+        window.renderSavings = renderSavings;
+        window.renderSovereignSavings = renderSovereignSavings;
+        window.updateDebtStats = updateDebtStats;
+
+        window.onload = function() {
+            let today = new Date().toISOString().split('T')[0];
+            document.getElementById('debtODate').value = today;
+            renderBorrows(); renderStoresTable(); renderSavings(); renderSovereignSavings();
+            showPage('tabHomepage', false);
+        };
+    })();
+</script>
+</body>
+</html>
